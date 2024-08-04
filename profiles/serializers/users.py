@@ -2,16 +2,23 @@ from rest_framework import serializers
 from profiles.models import CustomUser
 
 class UserSerializer(serializers.ModelSerializer):
-    # Use `write_only=True` for password field only on creation/updating
     password = serializers.CharField(write_only=True, style={'input_type': 'password'}, required=False)
 
     class Meta:
         model = CustomUser
-        # Include fields as necessary
-        fields = ('id', 'username', 'fullname', 'email', 'dob', 'password')  # Include 'id' if needed
+        fields = ('id', 'username', 'fullname', 'email', 'dob', 'password')
+
+    def validate_username(self, value):
+        if CustomUser.objects.filter(username=value).exists():
+            raise serializers.ValidationError("Username already exists")
+        return value
+
+    def validate_email(self, value):
+        if CustomUser.objects.filter(email=value).exists():
+            raise serializers.ValidationError("Email already exists")
+        return value
 
     def create(self, validated_data):
-        # Ensure the password is set properly
         user = CustomUser.objects.create_user(
             username=validated_data['username'],
             fullname=validated_data['fullname'],
@@ -41,3 +48,8 @@ class SimpleUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
         fields = ('username', 'fullname')
+
+class DetailedUserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CustomUser
+        fields = ('username', 'fullname', 'email')

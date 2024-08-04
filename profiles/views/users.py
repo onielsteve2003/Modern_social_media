@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from rest_framework.decorators import api_view
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import authenticate
-from ..serializers.users import UserSerializer, SimpleUserSerializer
+from ..serializers.users import UserSerializer, SimpleUserSerializer, DetailedUserSerializer
 from ..models.users import CustomUser
 from profiles.permissions import IsAuthenticatedCustom
 
@@ -17,10 +17,19 @@ def signup(request):
             "code": status.HTTP_201_CREATED,
             "message": "Signup successful"
         }, status=status.HTTP_201_CREATED)
-    return Response({
-        "code": status.HTTP_400_BAD_REQUEST,
-        "error": serializer.errors
-    }, status=status.HTTP_400_BAD_REQUEST)
+    else:
+        # Customize the error messages in the response
+        errors = serializer.errors
+        custom_errors = {}
+        for field, messages in errors.items():
+            if field == 'non_field_errors':
+                custom_errors['error'] = messages
+            else:
+                custom_errors[field] = messages
+        return Response({
+            "code": status.HTTP_400_BAD_REQUEST,
+            "error": custom_errors
+        }, status=status.HTTP_400_BAD_REQUEST)
 
 # Login request method
 @api_view(['POST'])
@@ -74,9 +83,31 @@ def list_users(request):
             "error": "Authentication credentials were not provided"
         }, status=status.HTTP_401_UNAUTHORIZED)
 
-    # Get all users excluding the current user
+    # Get the search query from request parameters
+    search_query = request.query_params.get('username', None)
+    
+    if search_query:
+        # Filter users based on the search query
+        users = CustomUser.objects.filter(username__icontains=search_query).exclude(id=request.user.id)
+        
+        if not users.exists():
+            return Response({
+                "code": status.HTTP_404_NOT_FOUND,
+                "error": "User not found"
+            }, status=status.HTTP_404_NOT_FOUND)
+        
+        serializer = DetailedUserSerializer(users, many=True)
+        
+        return Response({
+            "code": status.HTTP_200_OK,
+            "message": "Successfully retrieved user(s)",
+            "data": serializer.data
+        }, status=status.HTTP_200_OK)
+    
+    # Return all users excluding the current user if no search query
     users = CustomUser.objects.exclude(id=request.user.id)
     serializer = SimpleUserSerializer(users, many=True)
+    
     return Response({
         "code": status.HTTP_200_OK,
         "message": "Successfully retrieved all users",
