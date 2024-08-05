@@ -22,4 +22,6 @@ urlpatterns = [
     path('api/auth/', include('profiles.urls.user')),
     path('api/users/', include('profiles.urls.followers_following')),
     path('api/users/posts/', include('profiles.urls.posts')),
+    path('api/users/block/', include('profiles.urls.block')),
+    path('api/users/stories/', include('profiles.urls.story')),
 ]

@@ -1,5 +1,5 @@
 from django.urls import path
-from ..views.posts import CreatePostView, PostListView, PostUpdateView, FollowingPostsView, FollowingAndFollowersPostsView
+from ..views.posts import CreatePostView, PostListView, PostUpdateView, FollowingPostsView, FollowingAndFollowersPostsView, SharePostToTimelineView
 from ..views.likes_comments import LikePostView, CommentOnPostView, EditCommentView, DeleteCommentView, DeleteAnyCommentView, PostCommentsView
 from ..views.favorites import AddFavoriteView, ListFavoritesView
 
@@ -17,4 +17,5 @@ urlpatterns = [
     path('<int:post_id>/comments', PostCommentsView.as_view(), name='post-comments'),
     path('<int:post_id>/favorite', AddFavoriteView.as_view(), name='add_or_remove_favorite'),
     path('favorites', ListFavoritesView.as_view(), name='list_favorites'),
+    path('share-post-to-timeline', SharePostToTimelineView.as_view(), name='share-post-to-timeline'),
 ]

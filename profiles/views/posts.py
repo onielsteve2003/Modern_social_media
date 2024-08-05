@@ -2,7 +2,7 @@ from rest_framework import status, generics
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from profiles.models import Post, Follow
-from profiles.serializers.post_serializer import PostSerializer
+from profiles.serializers import PostSerializer, TimelinePostSerializer 
 
 # Make a post
 class CreatePostView(generics.CreateAPIView):
@@ -113,3 +113,43 @@ class FollowingAndFollowersPostsView(generics.ListAPIView):
             "message": "Successfully retrieved posts from users you are following and those following you.",
             "data": response.data
         }, status=status.HTTP_200_OK)
+
+# Share a post to the timeline
+class SharePostToTimelineView(generics.CreateAPIView):
+    serializer_class = TimelinePostSerializer
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        post_id = request.data.get('post_id')
+        
+        if not post_id:
+            return Response({
+                "code": status.HTTP_400_BAD_REQUEST,
+                "message": "Post ID is required."
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            post = Post.objects.get(id=post_id)
+        except Post.DoesNotExist:
+            return Response({
+                "code": status.HTTP_404_NOT_FOUND,
+                "message": "Post not found."
+            }, status=status.HTTP_404_NOT_FOUND)
+        
+        # Create a new post on the timeline
+        timeline_post_data = {
+            'title': post.title,
+            'description': post.description,
+            'image': post.image,
+            'user': request.user.id 
+        }
+        
+        serializer = self.get_serializer(data=timeline_post_data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save(user=request.user)  # Explicitly set the user field
+        
+        return Response({
+            "code": status.HTTP_201_CREATED,
+            "message": "Post reshared to timeline successfully.",
+            "data": serializer.data
+        }, status=status.HTTP_201_CREATED)
