@@ -48,13 +48,6 @@ class ListFavoritesView(generics.ListAPIView):
         return Favorite.objects.filter(user=self.request.user)
 
     def get(self, request, *args, **kwargs):
-        # Check if the user is authenticated
-        if not request.user.is_authenticated:
-            return Response({
-                "code": status.HTTP_401_UNAUTHORIZED,
-                "message": "User is not authenticated."
-            }, status=status.HTTP_401_UNAUTHORIZED)
-        
         # Retrieve the favorites
         favorites = self.get_queryset()
         

@@ -14,7 +14,6 @@ class CustomJWTAuthentication(BaseAuthentication):
             if prefix.lower() != 'bearer':
                 raise AuthenticationFailed('Invalid token header. No credentials provided.')
 
-            UntypedToken(token)  # Validate the token
             jwt_auth = JWTAuthentication()
             return jwt_auth.authenticate(request)
         except ValueError:

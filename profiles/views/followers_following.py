@@ -119,7 +119,7 @@ class UserFollowersView(generics.ListAPIView):
 
     def get_queryset(self):
         # Return a list of users who are following the currently authenticated user
-        return CustomUser.objects.filter(followers__follower=self.request.user)
+        return CustomUser.objects.filter(followers__follower=self.request.user).distinct()
 
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
@@ -130,14 +130,13 @@ class UserFollowersView(generics.ListAPIView):
             "data": serializer.data
         }, status=status.HTTP_200_OK)
 
-# This retrieves the list if a user's followings using their username, It displays their username
 class UserFollowingView(generics.ListAPIView):
     serializer_class = FollowingWithUsernameSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         # Return a list of users whom the currently authenticated user is following
-        return CustomUser.objects.filter(following__follower=self.request.user)
+        return CustomUser.objects.filter(following__follower=self.request.user).distinct()
 
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()

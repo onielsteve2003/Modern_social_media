@@ -1,4 +1,6 @@
 from rest_framework import generics, status
+from rest_framework.exceptions import NotFound
+from django.core.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from profiles.models import Post, Like, Comment
@@ -48,11 +50,10 @@ class CommentOnPostView(generics.CreateAPIView):
         try:
             post = Post.objects.get(id=post_id)
         except Post.DoesNotExist:
-            raise Response({
-                "code": status.HTTP_404_NOT_FOUND,
-                "message": "Post not found."
-            }, status=status.HTTP_404_NOT_FOUND)
-        
+            # Raise a proper DRF exception
+            raise NotFound(detail="Post not found.")
+
+        # Save the comment with the user and post fields
         serializer.save(user=self.request.user, post=post)
 
     def post(self, request, *args, **kwargs):
@@ -65,6 +66,12 @@ class EditCommentView(generics.UpdateAPIView):
 
     def get_queryset(self):
         return Comment.objects.filter(user=self.request.user)
+
+    def get_object(self):
+        try:
+            return super().get_object()
+        except Comment.DoesNotExist:
+            raise NotFound(detail="Comment not found.")
 
     def patch(self, request, *args, **kwargs):
         comment = self.get_object()
@@ -81,33 +88,27 @@ class DeleteCommentView(generics.DestroyAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return Comment.objects.filter(user=self.request.user)
+        return Comment.objects.all()  # Access all comments to handle ownership in `delete`
+
+    def get_object(self):
+        # Retrieve the comment, or raise NotFound if it does not exist
+        try:
+            return super().get_object()
+        except Comment.DoesNotExist:
+            raise NotFound(detail="Comment not found.")
 
     def delete(self, request, *args, **kwargs):
         comment = self.get_object()
         if comment.user != request.user:
-            # Check if the comment belongs to a post created by the user
-            if comment.post.user != request.user:
-                return Response({
-                    "code": status.HTTP_403_FORBIDDEN,
-                    "message": "You do not have permission to delete this comment."
-                }, status=status.HTTP_403_FORBIDDEN)
-
-        return super().delete(request, *args, **kwargs)
-
-    def delete(self, request, *args, **kwargs):
-        comment = self.get_object()
-        if comment.user != request.user:
-            if comment.post.user != request.user:
-                return Response({
-                    "code": status.HTTP_403_FORBIDDEN,
-                    "message": "You do not have permission to delete this comment."
-                }, status=status.HTTP_403_FORBIDDEN)
-        comment.delete()
+            return Response({
+                "code": status.HTTP_403_FORBIDDEN,
+                "message": "You do not have permission to delete this comment."
+            }, status=status.HTTP_403_FORBIDDEN)
+        response = super().delete(request, *args, **kwargs)
         return Response({
-            "code": status.HTTP_200_OK,
+            "code": status.HTTP_204_NO_CONTENT,
             "message": "Comment deleted successfully."
-        }, status=status.HTTP_200_OK)
+        }, status=status.HTTP_204_NO_CONTENT)
 
 # Delete a comment on a post by post owner
 class DeleteAnyCommentView(generics.DestroyAPIView):
@@ -115,20 +116,24 @@ class DeleteAnyCommentView(generics.DestroyAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        post = Post.objects.get(id=self.kwargs['post_id'])
+        post_id = self.kwargs['post_id']
+        try:
+            post = Post.objects.get(id=post_id)
+        except Post.DoesNotExist:
+            raise NotFound(detail="Post not found.")
         return post.comments.all()
+
+    def get_object(self):
+        comment = super().get_object()
+        post = comment.post
+        if post.user != self.request.user:
+            raise PermissionDenied("You do not have permission to delete this comment.")
+        return comment
 
     def delete(self, request, *args, **kwargs):
         comment = self.get_object()
-        post = comment.post
-        if post.user != request.user:
-            return Response({
-                "code": status.HTTP_403_FORBIDDEN,
-                "message": "You do not have permission to delete this comment."
-            }, status=status.HTTP_403_FORBIDDEN)
         comment.delete()
         return Response({
-            "code": status.HTTP_200_OK,
             "message": "Comment deleted successfully."
         }, status=status.HTTP_200_OK)
 
